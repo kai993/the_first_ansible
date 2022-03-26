@@ -130,3 +130,100 @@ anaconda-ks.cfg
 original-ks.cfg
 ```
 
+## タスク
+
+基本的なタスク
+
+```yaml
+# nameはなくても問題ないが指定しておくのが良い
+# --start-at-task [タスク名]で途中からタスクを実行できる
+- name: install nginx
+  yum: name=nginx update_cache=yes
+```
+
+複数行で書く場合
+
+```yaml
+- name: install nginx
+  apt: >
+    name=nginx
+    update_cache=yes
+```
+
+## モジュール
+Ansibleに同梱されているスクリプト群のこと
+
+- [yum](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/yum_module.html)
+- [template](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/template_module.html)
+- [copy](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/copy_module.html)
+- [service](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/service_module.html)など
+
+ドキュメントを見る
+
+```bash
+# serviceモジュールの場合
+❯ ansible-doc service
+```
+
+## 変数
+
+https://docs.ansible.com/ansible/2.9_ja/user_guide/playbooks_variables.html
+
+- varsを使う
+- ダブルクォートで囲む
+
+```
+vars:
+  filename: /etc/hoge.txt
+  dest: {{ filename }}   # syntax error
+  dest: "{{ filename }}" # ok!
+```
+
+## テンプレート
+
+設定ファイルのためのテンプレートエンジンとして[Jinra2][jinja2]を採用してる。  
+`templates/`ディレクトリに配置する。
+
+```
+# 例
+templates/index.html.j2
+```
+
+## ハンドラ
+
+https://docs.ansible.com/ansible/2.9_ja/user_guide/playbooks_intro.html#handlers
+
+ハンドラは条件付き処理の一つで、タスクから通知された時のみ実行される。  
+例えばnginxでは以下の状況の時に再起動が必要になる。
+- TLSの鍵が変更された
+- TLSの証明書が変更されたなど
+
+これらの状況が生じた場合にnotify文を使う
+
+```
+    - name: copy TLS key
+      ansible.builtin.copy:
+        src: files/nginx.key
+        dest: "{{ key_file }}"
+        owner: root
+        mode: '0600'
+      notify: restart nginx
+
+  handlers:
+    - name: restart nginx
+      ansible.builtin.service:
+        name: nginx
+        state: restarted
+
+```
+
+ハンドラが実行されるのはタスクが全て実行された後で、通知が複数ある場合も実行されるのは一度限り。  
+一般的な利用方法はサービスの再起動とリブートだけとされてる。
+
+## tools
+- [その他のツールおよびプログラム &mdash; Ansible Documentation](https://docs.ansible.com/ansible/2.9_ja/community/other_tools_and_programs.html)
+- [fboender/ansible-cmdb](https://github.com/fboender/ansible-cmdb)
+
+<!-- link -->
+[jinja2]: https://jinja.palletsprojects.com/en/3.1.x/
+
