@@ -1,0 +1,8 @@
+[production]
+vagrant1 ansible_host=node1.sample.co.jp ansible_port=2222
+
+[staging]
+vagrant2 ansible_host=node2.sample.co.jp ansible_port=2200
+
+[development]
+vagrant3 ansible_host=node3.sample.co.jp ansible_port=2201

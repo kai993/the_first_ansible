@@ -1,0 +1,14 @@
+db:
+  user: user1
+  password: password
+  database: db1
+  privary:
+    host: privary.example.com
+    port: 3306
+  replica:
+    host: replica.example.com
+    port: 3306
+
+rabbitmq:
+  host: pennsylvania.example.com
+  port: 6379
