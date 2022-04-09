@@ -397,6 +397,324 @@ rabbitmq:
 ## 動的インベントリ
 https://docs.ansible.com/ansible/2.9_ja/user_guide/intro_dynamic_inventory.html
 
+## 変数とファクト
+
+変数を定義する最もシンプルな方法はplaybookの`vars`セクションに定義すること
+
+```yaml
+vars:
+  key1: val1
+  key2: val2
+  key3: val3
+```
+
+### ファイルから読み込む
+
+```yaml
+vars_files:
+  - nginx.yml
+
+# nginx.yml
+key1: val1
+key2: val2
+key3: val3
+```
+
+### debug
+
+変数の値を表示する場合は`debug`モジュールを使用する
+
+```yaml
+  tasks:
+    - name: print vars
+      ansible.builtin.debug:
+        msg: "key_file={{ key_file }}, cert_file={{ cert_file }}, conf_file={{ conf_file }}, server_name={{ server_name }}"
+
+# output
+TASK [print vars] *****************************************************************************************************************************************************
+ok: [testserver] => {
+    "msg": "key_file=/etc/nginx/ssl/nginx.key, cert_file=/etc/nginx/ssl/nginx.crt, conf_file=/etc/nginx/conf.d/default.conf, server_name=localhost"
+}
+```
+
+### 変数の登録
+
+`register`を使うと、タスクの結果に基づいて変数の設定をすることができる。
+
+```yaml
+  tasks:
+    - name: capture output of id command
+      command: id -un
+      register: login
+
+    - debug: var=login
+```
+
+output
+
+```bash
+TASK [debug] **********************************************************************************************************************************************************
+ok: [testserver] => {
+    "login": {
+        "changed": true,
+        "cmd": [
+            "id",
+            "-un"
+        ],
+        "delta": "0:00:00.003296",
+        "end": "2022-03-26 07:54:19.878639",
+        "failed": false,
+        "msg": "",
+        "rc": 0,
+        "start": "2022-03-26 07:54:19.875343",
+        "stderr": "",
+        "stderr_lines": [],
+        "stdout": "root",
+        "stdout_lines": [
+            "root"
+        ]
+    }
+}
+```
+
+register節を使うとstdoutキーにアクセスできるようになる
+
+```yaml
+- name: capture output of id command
+  command: id -un
+  register: login
+
+- debug: msg="Logged in as user {{ login.stdout }}"
+```
+
+モジュールが返したエラーを無視する場合は[ignore_erros](https://docs.ansible.com/ansible/latest/user_guide/playbooks_error_handling.html)を使う
+
+```yaml
+- name: capture output of id command
+  command: id -un
+  register: login
+  ignore_errors: True
+- debug: msg="Logged in as user {{ login.stdout }}"
+```
+
+### ファクト
+
+playbookを実行した時に出力されるこれ
+
+```console
+TASK [Gathering Facts] ***********************************************************************************************************************************************************************************************************************
+ok: [testserver]
+```
+
+ホストに接続しCPU、アーキテクチャ、OSなどのホストに関するあらゆる詳細(ファクト)の収集を実施する。
+
+各サーバーのOSを出力する
+
+```yaml
+    - debug: var=ansible_distribution
+```
+
+```console
+TASK [debug] *********************************************************************************************************************************************************************************************************************************
+ok: [testserver] => {
+    "ansible_distribution": "CentOS"
+}
+```
+
+利用できるfactは次のコマンドで確認できる。
+
+```bash
+❯ ansible all -m setup | grep ansible_distribution
+        "ansible_distribution": "CentOS",
+        "ansible_distribution_file_parsed": true,
+        "ansible_distribution_file_path": "/etc/redhat-release",
+        "ansible_distribution_file_variety": "RedHat",
+        "ansible_distribution_major_version": "7",
+        "ansible_distribution_release": "Core",
+        "ansible_distribution_version": "7.8",
+```
+
+filterパラメータで出力を一部に絞ることができる。
+
+```
+❯ ansible all -m setup -a 'filter=ansible_default_ipv*'
+testserver | SUCCESS => {
+    "ansible_facts": {
+        "ansible_default_ipv4": {
+            "address": "10.0.2.15",
+            "alias": "eth0",
+            "broadcast": "10.0.2.255",
+            "gateway": "10.0.2.2",
+            "interface": "eth0",
+            "macaddress": "52:54:00:4d:77:d3",
+            "mtu": 1500,
+            "netmask": "255.255.255.0",
+            "network": "10.0.2.0",
+            "type": "ether"
+        },
+        "ansible_default_ipv6": {},
+        "discovered_interpreter_python": "/usr/bin/python"
+    },
+    "changed": false
+}
+```
+
+### ローカルファクト
+
+ホストの`/etc/ansible/facts.d`ディレクトリに下記のファイルを置くと`ansible_local`変数として利用できる。
+
+- .ini
+- .json
+- 実行可能であり、引数を取らずに標準出力にJSONを出力すること
+
+file
+
+```bash
+❯ jq . files/variable.json
+{
+  "vars": {
+    "title": "The first Ansible.",
+    "language": "Python",
+    "year": 2022
+  }
+}
+```
+
+playbook
+
+```yaml
+    - name: create ansible local directory.
+      ansible.builtin.file:
+        path: "{{ local_vars_dirs }}"
+        state: directory
+        mode: '0755'
+
+    - name: copy ansible local vars.
+      ansible.builtin.copy:
+        src: files/variable.fact
+        dest: "{{ local_vars_dirs }}/variable.fact"
+        mode: '0755'
+
+    - name: print ansible_local
+      debug: var=ansible_local
+
+    - name: print language
+      debug: msg="{{ ansible_local.variable.vars.language }}"
+```
+
+### 組み込み変数
+
+いくつかの変数をplaybookのなかで使えるように定義している。
+
+- hostvars
+- inventory_hostname 
+- groups_name
+- groups
+- play_hosts
+- ansible_version
+
+
+#### hostvars
+
+```yaml
+    - debug: msg="{{ hostvars['testserver'].ansible_all_ipv4_addresses[0] }}"
+```
+
+```bash
+$ ansible-playbook main.yml
+TASK [debug] *************************************************************************************************************************************************************************************************************************************************************
+ok: [testserver] => {
+    "msg": "192.168.56.10"
+}
+
+PLAY RECAP ***************************************************************************************************************************************************************************************************************************************************************
+testserver                 : ok=8    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+```
+
+#### inventory_hostname
+
+現在のホストに関連づけられた全ての変数を出力できる
+
+```bash
+$ cat hosts
+[webservers]
+testserver ansible_ssh_host=node1.sample.co.jp
+```
+
+### コマンドライン上で変数を設定する
+
+```yaml
+# greet.yml
+- name: pass a message on the command line
+  hosts: development
+  vars:
+    greeting: "you didn't specify a message"
+  tasks:
+    - name: output a message
+      debug: msg="{{ greeting }}"
+```
+
+```bash
+$ ansible-playbook greet.yml
+TASK [output a message] **************************************************************************************************************************************************************************************************************************************************
+ok: [testserver1] => {
+    "msg": "you didn't specify a message"
+}
+
+PLAY RECAP ***************************************************************************************************************************************************************************************************************************************************************
+testserver1                : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+```
+
+変数を設定する場合
+
+```bash
+$ ansible-playbook greet.yml -e greeting=こんにちは
+TASK [output a message] **************************************************************************************************************************************************************************************************************************************************
+ok: [testserver1] => {
+    "msg": "こんにちは"
+}
+
+PLAY RECAP ***************************************************************************************************************************************************************************************************************************************************************
+testserver1                : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+```
+
+空白を使う場合
+
+```bash
+$ ansible-playbook greet.yml -e 'greeting="Hello Warp!"'
+TASK [output a message] **************************************************************************************************************************************************************************************************************************************************
+ok: [testserver1] => {
+    "msg": "Hello Warp!"
+}
+
+PLAY RECAP ***************************************************************************************************************************************************************************************************************************************************************
+testserver1                : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+```
+
+ファイルから渡す場合
+
+```yaml
+$ yq . greetvars.yml
+greeting: HELLO
+```
+
+```bash
+$ ansible-playbook greet.yml -e @greetvars.yml
+TASK [output a message] **************************************************************************************************************************************************************************************************************************************************
+ok: [testserver1] => {
+    "msg": "HELLO"
+}
+
+PLAY RECAP ***************************************************************************************************************************************************************************************************************************************************************
+testserver1                : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+```
+
+### 優先順位
+- コマンドラインから渡す(ansible-playbook -e var=value)
+- インベントリファイル
+- ファクト
+- ロール(defaults/main.yml)
+
 ## tools
 - [その他のツールおよびプログラム &mdash; Ansible Documentation](https://docs.ansible.com/ansible/2.9_ja/community/other_tools_and_programs.html)
 - [fboender/ansible-cmdb](https://github.com/fboender/ansible-cmdb)

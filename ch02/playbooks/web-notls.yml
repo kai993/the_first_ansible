@@ -8,6 +8,10 @@
     conf_file: /etc/nginx/conf.d/default.conf
     server_name: localhost
   tasks:
+    - name: print vars
+      ansible.builtin.debug:
+        msg: "key_file={{ key_file }}, cert_file={{ cert_file }}, conf_file={{ conf_file }}, server_name={{ server_name }}"
+
     - name: setup yum repo of nginx
       ansible.builtin.template:
         src: files/nginx.repo

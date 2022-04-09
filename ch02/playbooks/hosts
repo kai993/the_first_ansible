@@ -1,2 +1,2 @@
 [webservers]
-testserver ansible_ssh_host=centos7.sample.co.jp
+testserver ansible_ssh_host=node1.sample.co.jp

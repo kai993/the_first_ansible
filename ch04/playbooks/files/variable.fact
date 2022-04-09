@@ -1,0 +1,7 @@
+{
+  "vars": {
+    "title": "The first Ansible.",
+    "language": "Python",
+    "year": 2022
+  }
+}
