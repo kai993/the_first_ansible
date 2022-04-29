@@ -715,6 +715,77 @@ testserver1                : ok=2    changed=0    unreachable=0    failed=0    s
 - ファクト
 - ロール(defaults/main.yml)
 
+## 高速化
+
+### SSHマルチプレキシングの有効化
+
+- OpenSSHは一般的なSSHの実装
+  - SSHマルチプレキシング・ControlPeersistと呼ばれる最適化の仕組みをサポートしている
+  - SSHマルチプレキシングは同一ホストへの複数のSSHセッションは同じTCPの接続を共有するため、TCP接続のネゴシエーションが行われるのは1度だけ
+
+マルチプレキシングを有効にするとSSHの動作は次になる
+- 初回のSSH接続の際にOpenSSHはマスターの接続を開始
+- 接続先のホストに関連づけられたUnixのドメインソケット(コントロールソケット)を生成
+- 次回からの接続は新しいTCP接続を生成せず、コントロールソケットを使って通信を行う
+
+SSHマルチプレキシングを有効化する
+
+```conf
+Host node1.sample.co.jp
+  ControlMaster auto       # SSHマルチプレキシングを有効化
+  ControlPath /tmp/%r%h:%p # Unixドメインソケットファイルの置き場所
+  ControlPersist 10m       # マスター接続が維持される時間
+```
+
+マスター接続がオープンになってるか
+
+```bash
+$ ssh -O check vagrant1
+Master running (pid=11682)
+
+# コントロールマスタープロセス
+$ ps 11682
+  PID   TT  STAT      TIME COMMAND
+11682   ??  Ss     0:00.00 ssh: /Users/kwatabiki/.ssh/165120199516114 [mux]
+
+# マスター接続の終了
+$ ssh -O exit vagrant1
+```
+
+時間の計測
+
+```bash
+# 初回
+$ time ssh vagrant1 /bin/true
+ssh vagrant1 /bin/true  0.01s user 0.01s system 7% cpu 0.219 total
+
+# 2回目
+$ time ssh vagrant1 /bin/true
+ssh vagrant1 /bin/true  0.00s user 0.00s system 29% cpu 0.019 total
+```
+
+### 並列処理
+並列度はデフォルトで5になっていて、パラメータを変更する方法は2つある
+
+```bash
+# ANSIBLE_FORKSの設定
+$ export ANSIBLE_FORKS=1
+
+# ansible.cfgで設定
+$ cat ansible.cfg
+[defalts]
+forks = 1
+
+# forks=1
+$ time ansible-playbook -i hosts greet.yml
+...
+ansible-playbook -i hosts greet.yml  1.05s user 0.41s system 49% cpu 2.969 total
+
+# forks=50
+$ time ansible-playbook -i hosts greet.yml
+ansible-playbook -i hosts greet.yml  1.04s user 0.41s system 64% cpu 2.268 total
+```
+
 ## tools
 - [その他のツールおよびプログラム &mdash; Ansible Documentation](https://docs.ansible.com/ansible/2.9_ja/community/other_tools_and_programs.html)
 - [fboender/ansible-cmdb](https://github.com/fboender/ansible-cmdb)
@@ -727,3 +798,56 @@ testserver1                : ok=2    changed=0    unreachable=0    failed=0    s
 [jinja2]: https://jinja.palletsprojects.com/en/3.1.x/
 [ansible_best_practices]: https://aap2.demoredhat.com/decks/ansible_best_practices.pdf
 [oreilly_ansible]: https://www.oreilly.co.jp/books/9784873117652/
+
+## memo
+ロケール追加
+
+```bash
+# エラーが出る
+$ vagrant ssh vagrant1
+Last login: Fri Apr 29 03:18:03 2022 from 10.0.2.2
+-bash: warning: setlocale: LC_CTYPE: cannot change locale (UTF-8): No such file or directory
+
+# ja_JPがない
+[vagrant@node1 ~]$ locale -a | grep -i utf
+locale: Cannot set LC_CTYPE to default locale: No such file or directory
+en_AG.utf8
+en_AU.utf8
+en_BW.utf8
+en_CA.utf8
+en_DK.utf8
+en_GB.utf8
+en_HK.utf8
+en_IE.utf8
+en_IN.utf8
+en_NG.utf8
+en_NZ.utf8
+en_PH.utf8
+en_SG.utf8
+en_US.utf8
+en_ZA.utf8
+en_ZM.utf8
+en_ZW.utf8
+
+# ロケール追加
+[vagrant@node1 ~]$ sudo localedef -f UTF-8 -i ja_JP ja_JP
+
+[vagrant@node1 ~]$ sudo localectl list-locales | grep -i ja
+ja_JP
+ja_JP.utf8
+
+# ロケール変更
+[vagrant@node1 ~]$ sudo localectl set-locale LANG=ja_JP.utf8
+
+[vagrant@node1 ~]$ localectl status
+localectl status
+   System Locale: LANG=ja_JP.utf8
+       VC Keymap: us
+      X11 Layout: n/a
+
+[vagrant@node1 ~]$ source /etc/locale.conf
+
+[vagrant@node1 ~]$ exit
+
+$ vagrant ssh vagrant1
+```

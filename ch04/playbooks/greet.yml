@@ -1,5 +1,6 @@
 - name: pass a message on the command line
-  hosts: development
+  hosts: all
+  serial: 1
   vars:
     greeting: "you didn't specify a message"
   tasks:

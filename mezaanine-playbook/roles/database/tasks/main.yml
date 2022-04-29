@@ -1,0 +1,49 @@
+---
+- name: install yum packages
+  become: True
+  yum:
+    name: "{{ packages }}"
+    update_cache: yes
+  with_items:
+    - libpq-dev
+    - postgresql
+    - python-psycopg2
+
+- name: copy configuration file
+  ansible.builtin.copy:
+    src: postgresql.conf
+    dest: /etc/postgresql/9.3/main/postgresql.conf
+    owner: postgres
+    group: postgres
+    mode: '0644'
+  become: true
+  notify: restart postgres
+
+- name: copy client authentication configuration file
+  copy:
+    src: pg_hba.conf
+    dest: /etc/postgresql/9.3/main/pg_hba.conf
+    owner: postgres
+    group: postgres
+    mode: '0640'
+  become: true
+  notify: restart postgres
+
+- name: create a user
+  postgresql_user:
+    name: "{{ database_user }}"
+    password: "{{ database_password }}"
+  become: true
+  become_user: postgres
+
+- name: create the database
+  postgresql_db:
+    name: "{{ database_name }}"
+    owner: "{{ database_user }}"
+    encoding: UTF8
+    lc_ctype: "{{ local }}"
+    lc_collate: "{{ locale }}"
+  become: true
+  become_user: postgres
+
+

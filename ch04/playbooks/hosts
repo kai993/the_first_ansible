@@ -1,8 +1,8 @@
 [development]
-testserver1 ansible_ssh_host=node1.sample.co.jp
+node1
 
 [staging]
-testserver99 ansible_ssh_host=node2.sample.co.jp
+node2
 
 [production]
-testserver01 ansible_ssh_host=node3.sample.co.jp
+node3
