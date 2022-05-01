@@ -12,6 +12,10 @@
         msg: "deploy skip {{ result.ansible_facts.ansible_nodename }}"
       when: result.ansible_facts.ansible_nodename != "node1.sample.co.jp"
 
-    - include_tasks: first.yml
+    - include_tasks: "{{ item }}"
+      loop:
+        - first.yml
+        - second.yml
+        - third.yml
       when: result.ansible_facts.ansible_nodename == "node1.sample.co.jp"
 

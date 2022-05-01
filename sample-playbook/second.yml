@@ -1,11 +1,8 @@
-- name: second
-  hosts: all
-  tasks:
-  - name: second echo
-    ansible.builtin.command:
-      cmd: echo second
-    register: result
+- name: second echo
+  ansible.builtin.command:
+    cmd: echo second
+  register: result
 
-  - name: second debug
-    ansible.builtin.debug:
-      msg: "{{ result.stdout }}"
+- name: second debug
+  ansible.builtin.debug:
+    msg: "{{ result.stdout }}"

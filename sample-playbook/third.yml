@@ -1,11 +1,8 @@
-- name: third
-  hosts: all
-  tasks:
-    - name: third echo
-      ansible.builtin.command:
-        cmd: echo third
-      register: result
+- name: third echo
+  ansible.builtin.command:
+    cmd: echo third
+  register: result
 
-    - name: third debug
-      ansible.builtin.debug:
-        msg: "{{ result.stdout }}"
+- name: third debug
+  ansible.builtin.debug:
+    msg: "{{ result.stdout }}"
