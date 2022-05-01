@@ -786,6 +786,126 @@ $ time ansible-playbook -i hosts greet.yml
 ansible-playbook -i hosts greet.yml  1.04s user 0.41s system 64% cpu 2.268 total
 ```
 
+## カスタムモジュール
+
+### カスタムモジュール
+
+`library/`ディレクトリに配置する
+
+Ansibleがモジュールを呼び出す流れは次
+
+- スタンドアローンのPythonスクリプトを引数付きで生成
+- モジュールをホストにコピー
+- 引数ファイルをホスト上で生成(非Pythonモジュールの場合)
+- 引数ファイルを引数として渡し、ホスト上でモジュールを呼び出す
+- モジュールの標準出力への出力をパース
+
+AnsibleモジュールはJSONを出力しないといけない
+
+- changed : 論理型の変数。モジュールの実行によってホストの状態が変化したかを示す。
+- failed : 失敗した場合、`failed=true`を返す。
+- msg : 失敗した理由を説明するメッセージを追加する。
+
+library/greet
+
+```python
+#!/usr/bin/python
+
+from ansible.module_utils.basic import *
+
+def main():
+    module = AnsibleModule(
+                argument_spec=dict(
+                    word=dict(default="World!"),
+                ),
+                supports_check_mode=True
+             )
+
+    # checkモードでは何も処理を行わない
+    # change=Falseを返す
+    if module.check_mode:
+        module.exit_json(changed=False)
+
+    word = "Hello " + module.params['word'] + "!"
+    module.exit_json(greet=word, changed=False)
+
+if __name__ == '__main__':
+    main()
+```
+
+playbook
+
+```yaml
+    - name: run greet module
+      greet: word="Python"
+      register: greet
+
+    - name: debug greet
+      debug:
+        var: greet
+```
+
+実行
+
+```bash
+❯ ansible-playbook -i hosts greet.yml
+...
+TASK [run greet module] **********************************************************************************************************************************************************************************************************************
+ok: [node1.sample.co.jp]
+TASK [debug greet] ***************************************************************************************************************************************************************************************************************************
+ok: [node1.sample.co.jp] => {
+    "greet": {
+        "changed": false,
+        "failed": false,
+        "greet": "Hello Python!"
+    }
+}
+```
+
+### スクリプトモジュール
+
+`scripts/`ディレクトリに配置する
+
+```bash
+❯ cat scripts/greet.sh
+#!/bin/bash
+arg=$1
+
+if [ -z "$arg" ]; then
+  arg="script"
+fi
+
+echo "Hello $arg!"
+```
+
+playbook
+
+```yaml
+    - name: custom script
+      script: scripts/greet.sh {{ ansible_hostname }}
+      register: greet
+
+    - name: debug greet
+      debug:
+        var: greet.stdout_lines
+```
+
+実行
+
+```bash
+❯ ansible-playbook -i hosts greet.yml
+...
+TASK [custom script] *************************************************************************************************************************************************************************************************************************
+changed: [node1.sample.co.jp]
+
+TASK [debug greet] ***************************************************************************************************************************************************************************************************************************
+ok: [node1.sample.co.jp] => {
+    "greet.stdout_lines": [
+        "Hello node1!"
+    ]
+}
+```
+
 ## tools
 - [その他のツールおよびプログラム &mdash; Ansible Documentation](https://docs.ansible.com/ansible/2.9_ja/community/other_tools_and_programs.html)
 - [fboender/ansible-cmdb](https://github.com/fboender/ansible-cmdb)
