@@ -1,0 +1,14 @@
+- name: can reach
+  hosts: development
+  tasks:
+    - name: install nc command
+      yum:
+        name: nc
+        state: latest
+      become: true
+
+    - name: run my custom script
+      script: scripts/can_reach.sh {{ ansible_nodename }} 80 1
+
+    - name: rum my custom module
+      can_reach: host={{ ansible_nodename }} port=8080 timeout=1

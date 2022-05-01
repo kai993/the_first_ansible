@@ -1,0 +1,23 @@
+#!/usr/bin/python
+
+from ansible.module_utils.basic import *
+
+def main():
+    module = AnsibleModule(
+                argument_spec=dict(
+                    word=dict(default="World!"),
+                ),
+                supports_check_mode=True
+             )
+
+    # checkモードでは何も処理を行わない
+    # change=Falseを返す
+    if module.check_mode:
+        module.exit_json(changed=False)
+
+    word = "Hello " + module.params['word'] + "!"
+    module.exit_json(greet=word, changed=False)
+
+if __name__ == '__main__':
+    main()
+

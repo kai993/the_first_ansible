@@ -1,9 +1,19 @@
 - name: pass a message on the command line
-  hosts: all
+  hosts: development
   serial: 1
   vars:
     greeting: "you didn't specify a message"
   tasks:
-    - name: output a message
-      debug: msg="{{ greeting }}"
+    # - name: output a message
+    #   debug: msg="{{ greeting }}"
+    # - name: custom script
+    #   script: scripts/greet.sh {{ ansible_hostname }}
+    #   register: greet
+    
+    - name: run greet module
+      greet: word="Python"
+      register: greet
 
+    - name: debug greet
+      debug:
+        var: greet

@@ -1,8 +1,8 @@
 [development]
-node1
+node1.sample.co.jp
 
 [staging]
-node2
+node2.sample.co.jp
 
 [production]
-node3
+node3.sample.co.jp
