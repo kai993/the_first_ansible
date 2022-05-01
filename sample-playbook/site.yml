@@ -1,0 +1,17 @@
+- name: deploy playbook
+  hosts: all
+  # serial: 1
+  tasks:
+    - name: check
+      ansible.builtin.setup:
+        filter:
+          - 'ansible_nodename'
+      register: result
+    - name: skip deploy
+      ansible.builtin.debug:
+        msg: "deploy skip {{ result.ansible_facts.ansible_nodename }}"
+      when: result.ansible_facts.ansible_nodename != "node1.sample.co.jp"
+
+    - include_tasks: first.yml
+      when: result.ansible_facts.ansible_nodename == "node1.sample.co.jp"
+

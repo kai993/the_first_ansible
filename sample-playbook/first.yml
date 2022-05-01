@@ -1,0 +1,7 @@
+- name: first echo
+  ansible.builtin.command: echo first
+  register: result
+
+- name: first debug
+  ansible.builtin.debug:
+    msg: "first debug result"
